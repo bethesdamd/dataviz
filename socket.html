@@ -1,0 +1,258 @@
+<html>
+  <head>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.js"></script>  
+    <script src="http://d3js.org/d3.v3.min.js"></script>
+    <script src="http://dimplejs.org/dist/dimple.v1.1.5.min.js"></script>
+    <script src="http://code.highcharts.com/highcharts.js"></script>
+    <script src="http://code.highcharts.com/modules/exporting.js"></script>
+
+<!-- Mapbox -->
+    <meta name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no' />
+    <script src='https://api.tiles.mapbox.com/mapbox.js/v1.6.2/mapbox.js'></script>
+    <link href='https://api.tiles.mapbox.com/mapbox.js/v1.6.2/mapbox.css' rel='stylesheet' />
+    <style>
+      body { margin:0; padding:0; }
+      #map {  width:300px; height: 300px }
+    </style>
+<!-- end Mapbox -->
+
+  </head>
+  <body>
+<table border="1">
+  <tr><td>
+    <div id="chartContainer">dimple</div>
+  </td>
+</tr>
+<tr>
+  <td>
+    <div id="container" style="min-width: 500px; height: 400px; margin: 0 auto">highcharts</div>
+    <div id="date">date here</div>
+    </td>
+  </tr>
+  <tr>
+    <td>
+    <div id="msg">msg here</div>
+    </td>
+  </tr>
+    
+    <script>
+      var socket = io.connect();
+      
+      socket.on('date', function(data){
+        $('#date').text(data.date);
+      });
+
+      socket.on('msg', function(data){
+        $('#msg').text(data);
+      });
+
+      socket.on('d3data', function(data){
+        redrawD3(JSON.parse(data)['arr']);
+      });
+
+      socket.on('dimpleData', function(data){
+        drawDimple(JSON.parse(data)['arr']);
+      });
+
+      socket.on('highchartsData', function(data){
+        drawHighCharts(JSON.parse(data));
+      });
+
+    </script>
+
+<!-- DIMPLE -->
+  <script type="text/javascript">
+
+function drawDimple(dimpleData) {
+    var svg = dimple.newSvg("#chartContainer", 1000, 200),
+    data = dimpleData,
+    chart = new dimple.chart(svg, data),
+    x = chart.addCategoryAxis("x", "Fruit"),
+    y = chart.addMeasureAxis("y", "Value"),
+    s = chart.addSeries(null, dimple.plot.bar);
+    x.addOrderRule(function (a, b) {
+      // The example here uses the length of the strings to order the values in descending order.
+      // A negative number means that b comes before a, a positive number means a comes before b.
+      return b["Fruit"].length - a["Fruit"].length;
+    });
+    chart.draw();
+  }
+  dimpleData = [
+        { "Value" : 100, "Fruit" : "Grapefruit" }, { "Value" : 400, "Fruit" : "Apple" }, 
+        { "Value" : 540, "Fruit" : "Banana" }, { "Value" : 100, "Fruit" : "Lemon" } ]
+  drawDimple(dimpleData);
+
+  </script>
+<!-- END DIMPLE -->
+
+<!-- RAW D3 -->
+    <script type="text/javascript">
+      // from http://examples.oreilly.com/0636920026938/chapter_09/05_transition.html
+      var w = 800;
+      var h = 200;
+      
+      var dataset = [ 5, 10, 13, 19, 21, 25, 22, 18, 15, 13, 11, 12, 15, 20, 18, 17, 16, 18, 23, 25 ];
+      
+      var xScale = d3.scale.ordinal().domain(d3.range(dataset.length)).rangeRoundBands([0, w], 0.05);
+
+      var yScale = d3.scale.linear().domain([0, d3.max(dataset)]).range([0, h]);
+
+      //Create SVG element
+      var svg = d3.select("body")
+            .append("svg").attr("width", w).attr("height", h);
+
+      //Create bars
+      svg.selectAll("rect")
+         .data(dataset).enter().append("rect")
+         .attr("x", function(d, i) {
+            return xScale(i);
+         })
+         .attr("y", function(d) {
+            return h - yScale(d);
+         })
+         .attr("width", xScale.rangeBand())
+         .attr("height", function(d) {
+            return yScale(d);
+         })
+         .attr("fill", function(d) {
+          return "rgb(0, 0, " + (d * 10) + ")";
+         });
+
+      //Create labels
+      svg.selectAll("text")
+         .data(dataset).enter().append("text")
+         .text(function(d) {
+            return d;
+         })
+         .attr("text-anchor", "middle").attr("x", function(d, i) {
+            return xScale(i) + xScale.rangeBand() / 2;
+         })
+         .attr("y", function(d) {
+            return h - yScale(d) + 14;
+         })
+         .attr("font-family", "sans-serif").attr("font-size", "11px").attr("fill", "white");
+
+      function redrawD3(newdata) {
+          // d3.select("svg").remove();
+          
+          // Dataset format:
+          // dataset = [ 11, 12, 15, 20, 18, 17, 16, 18, 23, 25, 5, 10, 13, 19, 21, 25, 22, 18, 15, 13 ];
+          dataset = newdata;
+
+          //Update all rects
+          svg.selectAll("rect")
+             .data(dataset)
+             .transition()                // <-- This makes it a smooth transition!
+             .attr("y", function(d) {
+                return h - yScale(d);
+             })
+             .attr("height", function(d) {
+                return yScale(d);
+             })
+             .attr("fill", function(d) {
+              return "rgb(0, 0, " + (d * 10) + ")";
+             });
+
+          //Update all labels
+          svg.selectAll("text")
+             .data(dataset)
+             .text(function(d) {
+                return d;
+             })
+             .attr("x", function(d, i) {
+                return xScale(i) + xScale.rangeBand() / 2;
+             })
+             .attr("y", function(d) {
+                return h - yScale(d) + 14;
+             });        
+        };
+    </script>
+<!-- END OF RAW D3 -->
+
+<!-- HIGHCHARTS -->
+<script>
+/* var num_data = [34.4, 21.8, 20.1, 20, 19.6, 19.5, 19.1, 18.4, 18, 17.3, 16.8, 15, 14.7, 14.5, 13.3, 12.8, 12.4, 11.8, 11.7, 11.2];
+var categories_data = ['Tokyo', 'Jakarta', 'New York', 'Seoul', 'Manila', 'Mumbai', 'Sao Paulo', 'Mexico City', 'Dehli',
+                    'Osaka', 'Cairo', 'Kolkata', 'Los Angeles', 'Shanghai', 'Moscow', 'Beijing', 'Buenos Aires',
+                    'Guangzhou', 'Shenzhen', 'Istanbul']
+*/
+
+var initial_data = { 'num_data': [1.2, 8.3, 3.0], 'categories_data': ['Tokyo', 'Jakarta', 'New York'] };
+drawHighCharts(initial_data);
+
+// $(function () {
+function drawHighCharts(incoming_data) {
+        var num_data = incoming_data['num_data'];
+        var categories_data = incoming_data['categories_data'];
+
+        $('#container').highcharts({
+            chart: {
+                type: 'column',
+                margin: [ 50, 50, 100, 80]
+            },
+            title: {
+                text: 'World\'s largest cities per 2008'
+            },
+            xAxis: {
+                categories: categories_data,
+                labels: {
+                    rotation: -45,
+                    align: 'right',
+                    style: {
+                        fontSize: '13px',
+                        fontFamily: 'Verdana, sans-serif'
+                    }
+                }
+            },
+            yAxis: {
+                min: 0,
+                title: {
+                    text: 'Population (millions)'
+                }
+            },
+            legend: {
+                enabled: false
+            },
+            tooltip: {
+                pointFormat: 'Population in 2008: <b>{point.y:.1f} millions</b>',
+            },
+            series: [{
+                name: 'Population',
+                data: num_data,
+                dataLabels: {
+                    enabled: true,
+                    rotation: -90,
+                    color: '#FFFFFF',
+                    align: 'right',
+                    x: 4,
+                    y: 10,
+                    style: {
+                        fontSize: '13px',
+                        fontFamily: 'Verdana, sans-serif',
+                        textShadow: '0 0 3px black'
+                    }
+                }
+            }]
+        });
+    }
+</script>
+
+<!-- END OF HIGHCHARTS -->
+
+  <tr>
+    <td>
+    <!-- Mapbox -->
+    <div id='map'></div>
+    <script>
+    var map = L.mapbox.map('map', 'swearingen.hpmncn58')
+        .setView([46.214, -84.019], 9);
+    </script>
+    <!-- end Mapbox -->
+    </td>
+  </tr>
+  
+</table>
+
+  </body>
+</html>
